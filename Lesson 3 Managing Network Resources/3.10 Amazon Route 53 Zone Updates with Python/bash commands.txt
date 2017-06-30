@@ -1,0 +1,12 @@
+
+# run python with command line arguments
+python source/scripts/updateRoute53.py <zone name> <record name> <ip address>
+
+# get ID of hosted zone
+HOSTED_ZONE_ID=$(aws --profile dev route53 list-hosted-zones-by-name --dns-name <zone name> --max-items 1 --query 'HostedZones[0].Id' --output text)
+
+# list record sets
+aws --profile dev route53 list-resource-record-sets --hosted-zone-id ${HOSTED_ZONE_ID}
+
+# get cleaner output
+aws --profile dev route53 list-resource-record-sets --hosted-zone-id ${HOSTED_ZONE_ID} --query 'ResourceRecordSets[?Type==`A`].{Name: Name, IP: ResourceRecords[0].Value}' --output table

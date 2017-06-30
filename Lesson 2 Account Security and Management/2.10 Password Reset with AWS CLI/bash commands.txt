@@ -1,0 +1,14 @@
+
+# for users without a login profile, create one
+aws --profile admin iam create-login-profile --user-name s.cooper --password Ch4n63M3N0w! --password-reset-required
+
+# change YOUR password
+aws --profile admin iam change-password --old-password Ch4n63M3N0w! --new-password Ilovephysics!
+
+# change the password for SOMEONE ELSE
+aws --profile admin iam update-login-profile --user-name a.fowler --password cH4n63M3N0w! --password-reset-required
+
+
+# http://docs.aws.amazon.com/cli/latest/reference/iam/create-login-profile.html
+# http://docs.aws.amazon.com/cli/latest/reference/iam/change-password.html
+# http://docs.aws.amazon.com/cli/latest/reference/iam/update-login-profile.html

@@ -1,0 +1,14 @@
+
+# create a topic to which cloudwatch alarms can be published
+TOPIC=$(aws --profile admin sns create-topic --name InfrastructureAlarms --query 'TopicArn' --output text) && echo ${TOPIC}
+
+# subscribe to the topic by email
+aws --profile admin sns subscribe --topic-arn ${TOPIC} --protocol email --notification-endpoint <your email>
+
+# allow other accounts to publish
+aws --profile admin sns add-permission --topic-arn ${TOPIC} \
+--aws-account-id <development account id> \
+--label AllowDevelopmentToPublish --action Publish GetTopicAttributes
+
+# verify development account can publish
+aws --profile dev sns publish --topic-arn ${TOPIC} --subject "dev account test" --message "hello"

@@ -1,0 +1,17 @@
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/storage/s3.yml
+
+# create stack AND wait for it to complete
+aws --profile admin cloudformation create-stack --stack-name s3-buckets --template-body file://source/cloudformation/storage/s3.yml && aws --profile admin cloudformation wait stack-create-complete --stack-name s3-buckets
+
+# describe the stack
+aws --profile admin cloudformation describe-stacks --stack-name s3-buckets
+
+# describe the events
+aws --profile admin cloudformation describe-stack-events --stack-name s3-buckets --query 'StackEvents[].[{Resource:LogicalResourceId, Status:ResourceStatus, Reason:ResourceStatusReason}]' --output table
+
+# describe the resorces of the stack
+aws --profile admin cloudformation describe-stack-resources --stack-name s3-buckets
+
+# *IF create fails*, delete stack, modify bucket names in template and try again
+aws --profile admin cloudformation delete-stack --stack-name s3-buckets && aws --profile admin cloudformation wait stack-delete-complete --stack-name s3-buckets

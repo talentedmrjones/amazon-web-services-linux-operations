@@ -1,0 +1,14 @@
+#capture instance pulic ip
+INSTANCE_PUBLIC_IP=$(aws --profile dev ec2 describe-instances --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+
+# shell into instance
+ssh -i ./lab.pem ec2-user@${INSTANCE_PUBLIC_IP}
+
+# show list of available data
+curl http://169.254.169.254/latest/meta-data/
+
+# capture private IP address
+LOCAL_IP4=$(curl http://169.254.169.254/latest/meta-data/local-ipv4) && echo ${LOCAL_IP4}
+
+# get instance id
+curl http://169.254.169.254/latest/meta-data/instance-id

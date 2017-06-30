@@ -1,0 +1,105 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "RDS PostgreSQL for Microservices"
+
+Parameters:
+  NetworkStack:
+    Type: String
+    Description: "Network stack to apply to."
+
+  Environment:
+    Type: String
+    AllowedValues:
+      - "dev"
+      - "prod"
+
+  DBUser:
+    Type: String
+    Description: "Master user for this DB"
+
+  DBPassword:
+    Type: String
+    Description: "Master password for this DB"
+
+Conditions:
+  # test whether Environment==prod
+  # if so we will deploy RDS in MultiAZ
+  CreateProdResources: !Equals [!Ref Environment, "prod"]
+
+Resources:
+  MicroservicesDbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnets for Microservices DBs"
+      SubnetIds:
+        - Fn::ImportValue:                    # IMPORT a value we exported from another stack
+            !Sub ${NetworkStack}-SubnetDbAId  # SUB-stitute the NetworkStack parameter to derive the export name
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-SubnetDbBId
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-SubnetDbCId
+      Tags:
+        - Key: Scope
+          Value: private
+        - Key: Purpose
+          Value: db
+        - Key: Service
+          Value: billing
+        - Key: Environment
+          Value: !Ref Environment
+
+  BillingServiceDb:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: BillingService
+      DBSubnetGroupName: !Ref MicroservicesDbSubnetGroup
+      AllocatedStorage: "100"
+      DBInstanceClass: "db.m4.large"
+      Engine: "postgres"
+      EngineVersion: "9.6.2"
+      Iops: "1000"
+      MultiAZ: !If [CreateProdResources, true, false]
+      PubliclyAccessible: false
+      MasterUsername:
+        Ref: "DBUser"
+      MasterUserPassword:
+        Ref: "DBPassword"
+      Tags:
+        - Key: Scope
+          Value: private
+        - Key: Purpose
+          Value: db
+        - Key: Service
+          Value: billing
+        - Key: Environment
+          Value: !Ref Environment
+
+  BillingServiceDbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "BillingServiceDb"
+      GroupDescription: "Billing service security"
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcId
+
+  BillingServiceDbSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref BillingServiceDbSecurityGroup
+      CidrIp:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcCidr
+      IpProtocol: "-1" # allow all traffic outbound
+
+  # allow DB to receive connections
+  BillingServiceDbSecurityGroupIngressAllowPostgres:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref BillingServiceDbSecurityGroup
+      CidrIp:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcCidr
+      IpProtocol: "tcp"
+      FromPort: 5432
+      ToPort: 5432

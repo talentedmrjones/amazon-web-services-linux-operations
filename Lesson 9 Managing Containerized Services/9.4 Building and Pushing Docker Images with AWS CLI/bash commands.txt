@@ -1,0 +1,30 @@
+
+# find our RDS instance DNS endpoint
+aws --profile dev rds describe-db-instances --query 'DBInstances[].[Endpoint]' --output table
+
+# upload our billing config to s3
+aws --profile admin s3 cp source/configs/services/billing/config.json s3://aws-linux-ops-configs/services/billing/config.json --sse AES256
+
+# first get the repo URI
+REPO_URI=$(aws --profile admin ecr describe-repositories --repository-names microservices/billing --query 'repositories[0].repositoryUri' --output text) && echo ${REPO_URI}
+
+# first build the docker image
+docker build -t ${REPO_URI}:1.0.0 source/services/billing/
+
+# run the image to see it working locally
+docker run --rm -d -e AWS_PROFILE=admin -v ~/.aws/:/root/.aws/ -p 8080:3000 $REPO_URI:1.0.0
+
+# list images to see
+docker images
+
+# get docker login command from ECR
+aws --profile admin ecr get-login --registry-ids <admin account number> --no-include-email
+
+# pipe that to bash
+aws --profile admin ecr get-login --registry-ids <admin account number> --no-include-email | bash
+
+# push the image to the repo
+docker push ${REPO_URI}:1.0.0
+
+# list images in the repo
+aws --profile admin ecr list-images --repository-name microservices/billing

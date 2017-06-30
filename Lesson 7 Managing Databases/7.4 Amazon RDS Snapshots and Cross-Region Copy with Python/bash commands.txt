@@ -1,0 +1,2 @@
+# run the python script
+python source/scripts/rds-snapshot-copy.py

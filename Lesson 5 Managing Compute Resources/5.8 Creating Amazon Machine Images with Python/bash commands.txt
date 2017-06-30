@@ -1,0 +1,14 @@
+# run python script
+python source/scripts/ami-builder/cassandraAmi.py
+
+# get details of image
+# http://docs.aws.amazon.com/cli/latest/reference/ec2/describe-images.html
+aws --profile admin ec2 describe-images --image-ids <image id>
+
+# share image with development account
+# http://docs.aws.amazon.com/cli/latest/reference/ec2/modify-image-attribute.html
+aws --profile admin ec2 modify-image-attribute --image-id <image id> --launch-permission "{\"Add\": [{\"UserId\":\"<dev account id>\"}]}"
+
+# verify image is shared with dev account
+# http://docs.aws.amazon.com/cli/latest/reference/ec2/describe-image-attribute.html
+aws --profile admin ec2 describe-image-attribute --image-id <image id> --attribute launchPermission

@@ -1,0 +1,90 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Lambda Environment Cleanup"
+
+Resources:
+  # all lambda functions need execution roles to grant the function the
+  # necessary permissions it needs during execution.
+  LambdaCleanupExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: LambdaCleanupExecution
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+          # a stock AWS policy that includes Cloudwatch Logs and S3 access
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+
+      Path: /
+      Policies:
+        - PolicyName: "AllowCleanupEC2"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+                # allow lambda to describe instances
+              - Effect: "Allow"
+                Action:
+                  - "ec2:DescribeInstances"
+                Resource: "*"
+
+                # allow lambda to STOP instances IF they have tag Environment=dev
+              - Effect: "Allow"
+                Action:
+                  - "ec2:StopInstances"
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    ec2:ResourceTag/Environment:
+                      - "dev"
+
+                # allow lambda to TERMINATE instances IF they have tag Environment=sandbox
+              - Effect: "Allow"
+                Action:
+                  - "ec2:TerminateInstances"
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    ec2:ResourceTag/Environment:
+                      - "sandbox"
+
+  # create a lambda function
+  LambdaCleanup:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        S3Bucket: aws-linux-ops
+        S3Key: scripts/lambda/cleanup.zip
+      Description: "Stops dev instances, terminates sandbox instances"
+      FunctionName: "cleanup"
+      Handler: "cleanup.handle_cleanup"
+      MemorySize: 128
+      Role: !GetAtt ["LambdaCleanupExecutionRole","Arn"]
+      Runtime:  python2.7
+      Timeout: 300
+
+  # create a schedule for this function to run
+  ScheduleCleanup:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Description: "ScheduledRule"
+      ScheduleExpression: "rate(24 hours)"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt ["LambdaCleanup","Arn"]
+          Id: "TargetFunctionV1"
+
+  # give events service permission to invoke function based on schedule
+  LambdaInvokePermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName: !GetAtt ["LambdaCleanup","Arn"]
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt ["ScheduleCleanup", "Arn"]

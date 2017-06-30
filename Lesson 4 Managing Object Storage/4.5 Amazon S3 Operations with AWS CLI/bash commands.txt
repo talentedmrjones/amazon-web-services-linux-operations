@@ -1,0 +1,72 @@
+# http://docs.aws.amazon.com/cli/latest/reference/s3/index.html#cli-aws-s3
+# http://docs.aws.amazon.com/cli/latest/reference/s3api/index.html
+
+# list buckets, notice difference between s3 & s3api
+aws --profile admin s3 ls
+aws --profile admin s3api list-buckets
+aws --profile admin s3api list-buckets --query 'Buckets[].Name' --output table
+
+# list objects in a bucket
+aws --profile admin s3 ls s3://aws-linux-ops
+
+# upload objects
+# http://docs.aws.amazon.com/cli/latest/reference/s3/cp.html
+aws --profile admin s3 cp ./source/cloudformation/access/roles-for-ec2.yml s3://aws-linux-ops/cloudformation/access/roles-for-ec2.yml
+
+# upload whole directories recursively
+aws --profile admin s3 cp ./source/cloudformation/ s3://aws-linux-ops/cloudformation/ --recursive
+
+
+# listing shows PREFIXES
+aws --profile admin s3 ls s3://aws-linux-ops
+
+# so does listing without trailing /
+aws --profile admin s3 ls s3://aws-linux-ops/cloudformation
+
+# list items with a common PREFIX (these are not folders or directories)
+aws --profile admin s3 ls s3://aws-linux-ops/cloudformation/
+aws --profile admin s3 ls s3://aws-linux-ops/cloudformation/ --recursive
+
+aws --profile admin s3api list-objects --bucket aws-linux-ops --prefix cloudformation
+aws --profile admin s3api list-objects --bucket aws-linux-ops --prefix cloudformation --query 'Contents[].[{Key:Key,Size:Size}]' --output table
+
+
+
+# SYNC
+# http://docs.aws.amazon.com/cli/latest/reference/s3/sync.html
+
+# sync local to remote
+aws --profile admin s3 sync source/ s3://aws-linux-ops/ --exclude "configs/*"
+
+# make a random file
+head -c 10000 /dev/urandom >source/dummy
+
+# resync
+aws --profile admin s3 sync source/ s3://aws-linux-ops/ --exclude "configs/*"
+
+# delete local file
+rm source/dummy
+
+# recover by syncing in REVERSE
+aws --profile admin s3 sync s3://aws-linux-ops/ source/
+
+# delete again
+rm source/dummy
+
+# resync
+aws --profile admin s3 sync source/ s3://aws-linux-ops/ --exclude "configs/*"
+
+# still there!
+aws --profile admin s3 ls s3://aws-linux-ops
+
+# sync with delete
+aws --profile admin s3 sync source/ s3://aws-linux-ops/ --exclude "configs/*" --delete
+
+
+# ENCRYPTION
+
+# uploading to config bucket without SSE is denied
+aws --profile admin s3 cp ./source/configs/ s3://aws-linux-ops-configs/ --recursive
+
+# according to bucket policy SSE AES256 is required
+aws --profile admin s3 cp ./source/configs/ s3://aws-linux-ops-configs/ --recursive --sse AES256

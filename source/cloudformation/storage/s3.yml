@@ -1,0 +1,76 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "S3 Buckets"
+
+Resources:
+  BucketForGeneralOperations:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html
+    # this will be used for bootstrapping and various other scripts
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: "<your bucket name>" # must be globally unique, add your initials plus perhaps birthdate to make unique
+
+  BucketPolicyForGeneralOperations:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref BucketForGeneralOperations
+      PolicyDocument:
+        Statement:
+            # allow the dev account to read from this bucket
+          - Action: "s3:GetObject"
+            Effect: "Allow"
+            Principal:
+              AWS: "<development account number>" # development account
+            Resource: "arn:aws:s3:::<your bucket name>/*"
+
+
+  # Create a bucket to hold configs *which may include credentials*
+  BucketForConfigs:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: "<your bucket name>-configs" # must be globally unique, add your initials plus perhaps birthdate to make unique
+
+  BucketPolicyForConfigs:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref BucketForConfigs
+      PolicyDocument:
+        Statement:
+            # prevent uploads if server side encryption was not set
+          - Action: "s3:PutObject"
+            Effect: "Deny"
+            Principal: "*"
+            Resource: "arn:aws:s3:::<your bucket name>-configs/*"
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: "AES256"
+
+            # allow the dev account to read from this bucket
+          - Action: "s3:GetObject"
+            Effect: "Allow"
+            Principal:
+              AWS: "<development account number>" # development account
+            Resource: "arn:aws:s3:::<your bucket name>-configs/*"
+
+
+  # Create a bucket to hold backups
+  BucketForBackups:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: "<your bucket name>-backups" # must be globally unique, add your initials plus perhaps birthdate to make unique
+
+  BucketPolicyForBackups:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref BucketForBackups
+      PolicyDocument:
+        Statement:
+
+            # allow the dev account to upload to this bucket
+          - Action: "s3:PutObject"
+            Effect: "Allow"
+            Principal:
+              AWS: "<development account number>" # development account
+            Resource: "arn:aws:s3:::<your bucket name>-backups/*"

@@ -1,0 +1,17 @@
+# validate the template
+aws cloudformation validate-template --template-body file://source/cloudformation/network/microservices-security.yml
+
+# create the stack for microservices network internet access
+aws --profile dev cloudformation create-stack --stack-name microservices-security --template-body file://source/cloudformation/network/microservices-security.yml --parameters ParameterKey=NetworkStack,ParameterValue=microservices-network
+
+# wait for the stack to finish
+aws --profile dev cloudformation wait stack-create-complete --stack-name microservices-security
+
+# capture VPC ID to env variable
+VPC_ID=$(aws --profile dev ec2 describe-vpcs --filters "Name=tag:Name,Values=microservices-network" --query 'Vpcs[0].VpcId' --output text)
+
+# list Network ACLs
+aws --profile dev ec2 describe-network-acls --filters "Name=vpc-id,Values=${VPC_ID}" "Name=tag:aws:cloudformation:stack-name,Values=microservices-security" --query 'NetworkAcls[].[NetworkAclId,Tags[?Key==`Name`]|[0].Value]' --output text
+
+# list NACL entries
+aws --profile dev ec2 describe-network-acls --filters "Name=vpc-id,Values=${VPC_ID}" "Name=tag:aws:cloudformation:stack-name,Values=microservices-security" --query 'NetworkAcls[].Entries[]'

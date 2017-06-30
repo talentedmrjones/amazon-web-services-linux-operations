@@ -1,0 +1,20 @@
+# get exports from microservices-network cloudformation stack
+aws --profile dev cloudformation list-exports --query 'Exports[].Value'
+
+# limit to just db subnets
+aws --profile dev cloudformation list-exports --query 'Exports[?starts_with(Name, `microservices-network-SubnetDb`) == `true`].[Name,Value]' --output table
+
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/datastore/rds-billing-postgres.yml --query 'Parameters[].[ParameterKey,Description]' --output table
+
+# create stack
+aws --profile dev cloudformation create-stack --stack-name rds-billing-postgres --template-body file://source/cloudformation/datastore/rds-billing-postgres.yml --parameters ParameterKey=NetworkStack,ParameterValue=microservices-network ParameterKey=Environment,ParameterValue=dev ParameterKey=DBUser,ParameterValue=rjones ParameterKey=DBPassword,ParameterValue=oicu812!
+
+# wait for stack to complete
+aws --profile dev cloudformation wait stack-create-complete --stack-name rds-billing-postgres
+
+# describe stack events (perhaps while you wait)
+aws --profile dev cloudformation describe-stack-events --stack-name rds-billing-postgres --query 'StackEvents[].[{Resource:LogicalResourceId, Status:ResourceStatus, Reason:ResourceStatusReason}]' --output table
+
+# describe parameters (see db credentials out in plain text!)
+aws --profile dev cloudformation describe-stacks --stack-name rds-billing-postgres --query 'Stacks[0].Parameters' --output table

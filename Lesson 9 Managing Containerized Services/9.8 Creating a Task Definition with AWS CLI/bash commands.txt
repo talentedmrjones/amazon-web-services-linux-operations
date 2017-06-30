@@ -1,0 +1,18 @@
+# first get the repo URI
+REPO_URI=$(aws --profile admin ecr describe-repositories --repository-names microservices/billing --query 'repositories[0].repositoryUri' --output text) && echo ${REPO_URI}
+
+# get the version from our package.json
+VERSION=$(cat source/services/billing/package.json | jq -r '.version') && echo ${VERSION}
+
+# update the task-definition.json file using some bash magic ("in-place editing")
+# http://backreference.org/2011/01/29/in-place-editing-of-files/
+{ rm source/configs/services/billing/task-definition.json; jq -r ".containerDefinitions[0].image = \"${REPO_URI}:${VERSION}\"" > source/configs/services/billing/task-definition.json; } < source/configs/services/billing/task-definition.json
+
+# get role arn
+ROLE_ARN=$(aws --profile dev iam get-role --role-name EcsTaskRoleForServiceBilling --query 'Role.Arn' --output text) && echo ${ROLE_ARN}
+
+# create the task definition
+aws --profile dev ecs register-task-definition --task-role-arn ${ROLE_ARN} --cli-input-json file://source/configs/services/billing/task-definition.json
+
+# list task definitions
+aws --profile dev ecs list-task-definitions --family-prefix microservices-billing --sort DESC

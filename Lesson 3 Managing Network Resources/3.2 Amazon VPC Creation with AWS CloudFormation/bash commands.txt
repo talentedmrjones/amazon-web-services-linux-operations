@@ -1,0 +1,17 @@
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/network/microservices-network.yml
+
+# create the stack for microservices network
+aws --profile dev cloudformation create-stack --stack-name microservices-network --template-body file://source/cloudformation/network/microservices-network.yml --parameters ParameterKey=VpcCidrPrefix,ParameterValue=10.0
+
+# wait for the stack to finish
+aws --profile dev cloudformation wait stack-create-complete --stack-name microservices-network
+
+# now list the exports
+aws --profile dev cloudformation list-exports
+
+# get a better display
+aws --profile dev cloudformation list-exports --query 'Exports[].[Name,Value]' --output table
+
+# do the same thing with jq
+aws --profile dev cloudformation list-exports | jq -r '.Exports[] | "\(.Name): \(.Value)"'

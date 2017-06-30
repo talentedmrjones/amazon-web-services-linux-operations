@@ -1,0 +1,12 @@
+# first create a repository with Amazon EC2 Container Registry (Amazon ECR)
+# create the repo in the ADMIN account
+aws --profile admin ecr create-repository --repository-name microservices/billing
+
+
+# allow the DEVELOPMENT account to READ from this repo
+aws --profile admin ecr set-repository-policy \
+--repository-name microservices/billing \
+--policy-text '{"Version":"2012-10-17","Statement":[{"Sid":"AllowDevPull","Principal":{"AWS":"<development account number>"},"Effect":"Allow","Action":["ecr:BatchGetImage","ecr:GetDownloadUrlForLayer","ecr:BatchCheckLayerAvailability"]}]}'
+
+# verify policy
+aws --profile admin ecr get-repository-policy --repository-name microservices/billing

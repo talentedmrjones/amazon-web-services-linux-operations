@@ -1,0 +1,11 @@
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/loadbalancing/elb-for-microservices.yml
+
+# create the stack for microservices network internet access && wait
+aws --profile dev cloudformation create-stack --stack-name microservices-dev-ohio-elb --template-body file://source/cloudformation/loadbalancing/elb-for-microservices.yml --parameters ParameterKey=NetworkStack,ParameterValue=microservices-network ParameterKey=ElbName,ParameterValue=microservices-dev-ohio && aws --profile dev cloudformation wait stack-create-complete --stack-name microservices-dev-ohio-elb
+
+# describe stack events
+aws --profile dev cloudformation describe-stack-events --stack-name microservices-dev-ohio-elb --query 'StackEvents[].[{Resource:LogicalResourceId, Status:ResourceStatus, Reason:ResourceStatusReason}]' --output table
+
+# describe stack resources
+aws --profile dev cloudformation describe-stack-resources --stack-name microservices-dev-ohio-elb --query 'StackResources[].[LogicalResourceId,ResourceStatus]' --output table

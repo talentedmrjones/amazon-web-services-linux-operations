@@ -1,0 +1,26 @@
+# create the cluster
+# http://docs.aws.amazon.com/cli/latest/reference/ecs/create-cluster.html
+aws --profile dev ecs create-cluster --cluster-name microservices-dev-ohio
+
+# now that we have the cluster, add EC2 instances by scaling the ASG
+# update the stack
+aws --profile dev cloudformation update-stack \
+--stack-name microservices-dev-ohio \
+--use-previous-template \
+--parameters \
+ParameterKey=NetworkStack,UsePreviousValue=true \
+ParameterKey=AMI,UsePreviousValue=true \
+ParameterKey=KeyName,UsePreviousValue=true \
+ParameterKey=NumNodes,ParameterValue=3
+
+# wait for stack to update
+aws --profile dev cloudformation wait stack-update-complete --stack-name microservices-dev-ohio
+
+# list clusters
+aws --profile dev ecs list-clusters
+
+# capture the arns
+CLUSTERS=$(aws --profile dev ecs list-clusters --query 'clusterArns[]' --output text)
+
+# describe the ACTIVE clusters in a human readable way
+aws --profile dev ecs describe-clusters --clusters ${CLUSTERS} --query 'clusters[?status==`ACTIVE`].[{Cluster:clusterName, "EC2 Instances": registeredContainerInstancesCount, Services: activeServicesCount, "Tasks Pending": pendingTasksCount, "Tasks Running": runningTasksCount}]' --output table

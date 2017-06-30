@@ -1,0 +1,160 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Internet Gateway and Route Table for public traffic"
+
+Parameters:
+  NetworkStack:
+    Type: "String"
+    Description: "Network stack to apply to."
+
+Resources:
+
+  # Provide the VPC with access to the internet
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Ref AWS::StackName
+
+  # The Internet gateway alone is not enough, it must be attached to a vpc
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId:
+        Fn::ImportValue:              # IMPORT a value we exported from another stack
+          !Sub ${NetworkStack}-VpcId  # SUB-stitute the NetworkStack parameter to derive the export name
+
+  # Traffic must be explicitly routed through the internet gateway for bidirectional internet communication
+  publicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcId
+      Tags:
+      - Key: Name
+        Value: Dmz Routes
+      - Key: Scope
+        Value: public
+
+  # add a route to the route table
+  publicRouteToInternet:
+    # force Cloudformation to attach the internet gateway before creating the route
+    DependsOn: InternetGatewayAttachment
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0 # all other traffic not destined for the vpc range will be routed through internet gateway
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref publicRouteTable
+
+  # Route tables need to be associated with subnets
+  publicRouteTableAssociationA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref publicRouteTable
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-DmzSubnetAId
+
+  publicRouteTableAssociationB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref publicRouteTable
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-DmzSubnetBId
+
+  publicRouteTableAssociationC:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref publicRouteTable
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-DmzSubnetCId
+
+
+  # Private subnets will need to reach OUT to the internet while remaining PRIVATE
+  # Network Address Translation solves this, so add a NAT gateway
+  NatGateway:
+    DependsOn: InternetGatewayAttachment # force Cloudformation to attach the internet gateway before creating the NAT gateway
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ElasticIP.AllocationId
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-DmzSubnetAId
+
+  # NAT gateway needs a public Elastic IP address
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+
+  # private subnets need a route table
+  privateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcId
+      Tags:
+      - Key: Name
+        Value: Private Routes
+      - Key: Scope
+        Value: private
+
+  privateRouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: privateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0 # all traffic not destined for the VPC range
+      NatGatewayId: !Ref NatGateway   # gets routed through the NAT gateway
+
+  # Route tables need to be associated with subnets
+  privateRouteTableAssociationA:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref privateRouteTable
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-SubnetNodesAId
+
+  privateRouteTableAssociationB:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref privateRouteTable
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-SubnetNodesBId
+
+  privateRouteTableAssociationC:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId: !Ref privateRouteTable
+      SubnetId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-SubnetNodesCId
+
+  # RDS does not need access to the internet, so we will leave out the DB subnets
+  # which will have them use the default route table which is local/private only
+  # If we decided to run a DB on EC2 we can uncomment these
+
+  # privateRouteTableAssociationA2:
+  #   Type: "AWS::EC2::SubnetRouteTableAssociation"
+  #   Properties:
+  #     RouteTableId: !Ref privateRouteTable
+  #     SubnetId:
+  #       Fn::ImportValue:
+  #         !Sub ${NetworkStack}-SubnetDbAId
+  #
+  # privateRouteTableAssociationB2:
+  #   Type: "AWS::EC2::SubnetRouteTableAssociation"
+  #   Properties:
+  #     RouteTableId: !Ref privateRouteTable
+  #     SubnetId:
+  #       Fn::ImportValue:
+  #         !Sub ${NetworkStack}-SubnetDbBId

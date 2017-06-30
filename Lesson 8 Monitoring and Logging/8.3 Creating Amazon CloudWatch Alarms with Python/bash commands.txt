@@ -1,0 +1,5 @@
+# run the python script
+python source/scripts/createAlarms.py
+
+# list cloudwatch alarms
+aws --profile dev cloudwatch describe-alarms

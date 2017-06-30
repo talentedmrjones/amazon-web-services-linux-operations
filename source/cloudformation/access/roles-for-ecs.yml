@@ -1,0 +1,52 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ECS Service Roles"
+
+Resources:
+
+  # create a role for the ECS service itself
+  EcsServiceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: EcsServiceRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ecs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        # allows the EC2 Container Service to manage resources like ELB for us
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole
+
+  # create a role for the TASKS related to the billing service
+  EcsTaskRoleForServiceBilling:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: EcsTaskRoleForServiceBilling
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ecs-tasks.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+
+      # Create an INLINE policy specific to this role
+      Policies:
+        - PolicyName: "EnableBillingOperations"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+
+                # tasks need to pull configs from s3
+              - Effect: "Allow"
+                Action: "s3:GetObject"
+                Resource: "arn:aws:s3:::aws-linux-ops-configs/services/billing/*"

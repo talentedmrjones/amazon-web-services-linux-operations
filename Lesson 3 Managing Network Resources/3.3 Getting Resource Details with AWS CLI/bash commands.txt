@@ -1,0 +1,26 @@
+# use this to list all VPCs
+aws --profile dev ec2 describe-vpcs
+
+# filter by tag name
+aws --profile dev ec2 describe-vpcs --filters "Name=tag:Name,Values=microservices-network"
+
+# capture VPC ID to env variable
+VPC_ID=$(aws --profile dev ec2 describe-vpcs --filters "Name=tag:Name,Values=microservices-network" --query 'Vpcs[0].VpcId' --output text)
+
+# verify VPC_ID
+echo ${VPC_ID}
+
+# find subnets using VPC_ID
+aws --profile dev ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}"
+
+# use --query for cleaner output
+aws --profile dev ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query 'Subnets[].[SubnetId,CidrBlock]' --output text
+
+# Add the scope
+aws --profile dev ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query 'Subnets[].[SubnetId,CidrBlock,Tags[?Key==`Scope`].Value]' --output text
+
+# add Scope
+aws --profile dev ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query 'Subnets[].[SubnetId,CidrBlock,Tags[?Key==`Scope`]|[0].Value]' --output text
+
+# add Scope, AZ, and Available Addresses on same line
+aws --profile dev ec2 describe-subnets --filters "Name=vpc-id,Values=${VPC_ID}" --query 'Subnets[].[Tags[?Key==`Name`]|[0].Value,SubnetId,CidrBlock,Tags[?Key==`Scope`]|[0].Value,AvailableIpAddressCount,AvailabilityZone]' --output table

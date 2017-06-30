@@ -1,0 +1,27 @@
+# check availability zone of instance we launched earlier
+AZ=$(aws --profile dev ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[0].Instances[0].Placement.AvailabilityZone' --output text)
+
+# create a general purpose SSD
+aws --profile dev ec2 create-volume --availability-zone ${AZ} --volume-type gp2 --size 100
+
+# create a Provisioned IOPS volume
+aws --profile dev ec2 create-volume --availability-zone ${AZ} --volume-type io1 --size 100 --iops 1000
+
+# create a volume with tags
+aws --profile dev ec2 create-volume --availability-zone ${AZ} --volume-type gp2 --size 100 --tag-specifications 'ResourceType=volume,Tags=[{Key=Service,Value=mongodb},{Key=cost-center,Value=cc123}]'
+aws --profile dev ec2 create-volume --availability-zone ${AZ} --volume-type gp2 --size 100 --tag-specifications 'ResourceType=volume,Tags=[{Key=Service,Value=kafka},{Key=Project,Value=analytics}]'
+
+# list volumes
+aws --profile dev ec2 describe-volumes
+
+# list volumes filtered by tags
+aws --profile dev ec2 describe-volumes --filters Name=tag-key,Values=Service
+
+# list volumes filtered by tags but more readable
+aws --profile dev ec2 describe-volumes --filters Name=tag-key,Values=Service --query 'Volumes[].[Tags[?Key==`Service`]|[0].Value,VolumeId,Size,VolumeType,State]' --output table
+
+# list all volumes but more readable with customizes titles
+aws --profile dev ec2 describe-volumes --query 'Volumes[].[{Service:Tags[?Key==`Service`]|[0].Value,Id:VolumeId,Size:Size,Type:VolumeType,State:State}]' --output table
+
+# show attachment information by volume id
+aws --profile dev ec2 describe-volumes --volume-ids <volume id> --query 'Volumes[0].Attachments' --output table

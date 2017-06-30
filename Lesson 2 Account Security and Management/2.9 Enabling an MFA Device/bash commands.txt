@@ -1,0 +1,18 @@
+# first create the virtual MFA device
+aws --profile admin iam create-virtual-mfa-device --virtual-mfa-device-name SCooperMFADevice --outfile ./QRCode.png --bootstrap-method QRCodePNG
+
+# enable by attaching to user
+aws --profile admin iam enable-mfa-device --user-name s.cooper --serial-number <device arn> --authentication-code-1 <code> --authentication-code-2 <code>
+
+
+# configure AWS CLI to use this device when assuming roles
+aws --profile dev configure set role_arn <role arn from dev account>
+aws --profile dev configure set source_profile admin
+aws --profile dev configure set mfa_serial <mfa device serial>
+aws --profile dev configure set region us-east-2
+
+# make a call to the DEV ACCOUNT
+aws --profile dev ec2 describe-instances
+
+# to be safe
+rm QRCode.png

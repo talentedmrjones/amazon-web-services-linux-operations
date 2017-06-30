@@ -1,0 +1,37 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Roles for EC2 Instances"
+
+Resources:
+  # A role so that our AMI builder can tag itself
+  EC2AmiBuilder:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: EC2AmiBuilder
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: "AllowEC2InstanceToTag"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action: "ec2:CreateTags"
+                Resource: "*"
+
+  EC2AmiBuilderProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      InstanceProfileName: EC2AmiBuilder
+      Roles:
+        - !Ref EC2AmiBuilder

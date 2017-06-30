@@ -1,0 +1,25 @@
+{
+  "family": "microservices-billing",
+  "containerDefinitions": [
+    {
+      "name": "billing-nodejs",
+      "image": "649103636557.dkr.ecr.us-east-2.amazonaws.com/microservices/billing:1.1.0",
+      "cpu": 100,
+      "memory": 128,
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "microservices-billing",
+          "awslogs-region": "us-east-2"
+        }
+      },
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Private Host Zone"
+
+Resources:
+  route53PrivateHostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: "<insert your domain name>"
+      VPCs:
+      - VPCId: <VPC ID>
+        VPCRegion: "<region>"

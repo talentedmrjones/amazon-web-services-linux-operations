@@ -1,0 +1,26 @@
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/access/roles-for-ec2.yml
+
+# first create the stack specifying the template file and the necessary IAM capabilities
+aws --profile dev cloudformation create-stack --stack-name roles-for-ec2 --template-body file://source/cloudformation/access/roles-for-ec2.yml --capabilities "CAPABILITY_NAMED_IAM"
+
+
+# now wait for completion
+aws --profile dev cloudformation wait stack-create-complete --stack-name roles-for-ec2
+aws --profile dev cloudformation describe-stacks --stack-name roles-for-ec2 --query 'Stacks[].StackStatus' --output text
+
+
+# describe cloudformation stack resources to see details
+aws --profile dev cloudformation describe-stack-resources --stack-name roles-for-ec2
+
+
+# describe IAM role to see more details
+aws --profile dev iam get-role --role-name EcsNode
+aws --profile dev iam get-role --role-name EC2VolumeAccess
+
+
+# also create a stack for other necessary roles in the ADMIN account
+aws cloudformation validate-template --template-body file://source/cloudformation/access/roles-for-ec2-ops.yml
+aws --profile admin cloudformation create-stack --stack-name roles-for-ec2-ops --template-body file://source/cloudformation/access/roles-for-ec2-ops.yml --capabilities "CAPABILITY_NAMED_IAM"
+aws --profile admin cloudformation wait stack-create-complete --stack-name roles-for-ec2-ops
+aws --profile admin cloudformation describe-stack-resources --stack-name roles-for-ec2-ops

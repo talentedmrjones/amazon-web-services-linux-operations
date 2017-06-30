@@ -1,0 +1,11 @@
+# validate the template
+aws cloudformation validate-template --template-body file://source/cloudformation/access/roles-for-ecs.yml
+
+# create stack
+aws --profile dev cloudformation create-stack --stack-name roles-for-ecs --template-body file://source/cloudformation/access/roles-for-ecs.yml --capabilities CAPABILITY_NAMED_IAM
+
+# wait
+aws --profile dev cloudformation wait stack-create-complete --stack-name roles-for-ecs
+
+# list roles
+aws --profile dev iam list-roles --query 'Roles[].RoleName' --output table

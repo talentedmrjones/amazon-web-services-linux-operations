@@ -1,0 +1,2 @@
+# execute python script
+python source/scripts/volumeCleanup.py

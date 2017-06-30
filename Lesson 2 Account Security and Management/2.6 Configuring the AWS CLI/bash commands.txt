@@ -1,0 +1,15 @@
+
+# configure all properties
+aws configure
+
+# list config details
+aws configure list
+
+# configure specific profile
+aws --profile admin configure
+
+# set specific property
+aws --profile admin configure set region us-west-2
+
+# get specific property
+aws --profile admin configure get region

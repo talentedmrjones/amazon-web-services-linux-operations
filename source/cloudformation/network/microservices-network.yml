@@ -1,0 +1,220 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Microservices VPC and Subnets"
+
+Parameters:
+  VpcCidrPrefix:
+    Type: "String"
+    AllowedPattern: "(\\d{1,3})\\.(\\d{1,3})"
+
+Resources:
+  Vpc:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".0.0/21"]]
+      EnableDnsSupport: True
+      EnableDnsHostnames: True
+      Tags:
+      - Key: Name
+        Value: !Ref "AWS::StackName"
+
+  # create three /24 subnets to hold Elastic Load Balancer(s). 251 usable IPs each gives plenty of room to scale
+  subnetDmzA:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".0.0/24"]] # .0.0-.0.255
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: DMZ A
+      - Key: Scope
+        Value: public
+      VpcId: !Ref Vpc
+
+  subnetDmzB:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".1.0/24"]] # .1.0-.1.255
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: DMZ B
+      - Key: Scope
+        Value: public
+      VpcId: !Ref Vpc
+
+  subnetDmzC:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".2.0/24"]] # .2.0-.2.255
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: DMZ C
+      - Key: Scope
+        Value: public
+      VpcId: !Ref Vpc
+
+  # create three /24 subnets to hold ec2 instances. 251 usable IPs gives plenty of room to scale
+  subnetNodesA:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".3.0/24"]] # .3.0 - .3.255
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Microservices Nodes A
+      - Key: Scope
+        Value: private
+      - Key: Purpose
+        Value: nodes
+      VpcId: !Ref Vpc
+
+  subnetNodesB:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".4.0/24"]] # .4.0 - .4.255
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Microservices Nodes B
+      - Key: Scope
+        Value: private
+      - Key: Purpose
+        Value: nodes
+      VpcId: !Ref Vpc
+
+  subnetNodesC:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".5.0/24"]] # .5.0 - .5.255
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Microservices Nodes C
+      - Key: Scope
+        Value: private
+      - Key: Purpose
+        Value: nodes
+      VpcId: !Ref Vpc
+
+  # Create three /28 subnets to hold RDS instances
+  subnetDbA:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".6.0/28"]] # .6.0 - .6.15 (11 usable address)
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Microservices DB A
+      - Key: Scope
+        Value: private
+      - Key: Purpose
+        Value: db
+      VpcId: !Ref Vpc
+
+  subnetDbB:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".6.16/28"]] # .6.16 - .6.31 (11 usable address)
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Microservices DB B
+      - Key: Scope
+        Value: private
+      - Key: Purpose
+        Value: db
+      VpcId: !Ref Vpc
+
+  subnetDbC:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      CidrBlock: !Join [ "", [!Ref VpcCidrPrefix, ".6.32/28"]] # .6.32 - .6.47 (11 usable address)
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: Microservices DB C
+      - Key: Scope
+        Value: private
+      - Key: Purpose
+        Value: db
+      VpcId: !Ref Vpc
+
+Outputs:
+  VpcId:
+      Description : "VPC ID"
+      Value:  !Ref Vpc
+      Export:                               # export the ID of the Vpc so other stacks can import it
+        Name: !Sub ${AWS::StackName}-VpcId
+
+  VpcCidr:
+      Description : "VPC ID"
+      Value:  !GetAtt Vpc.CidrBlock
+      Export:                               # export the IP range of the Vpc so other stacks can import it
+        Name: !Sub ${AWS::StackName}-VpcCidr
+
+  DmzSubnetAId:
+      Description : "DMZ A Subnet ID"
+      Value:  !Ref subnetDmzA
+      Export:
+        Name: !Sub ${AWS::StackName}-DmzSubnetAId
+
+  DmzSubnetBId:
+      Description : "DMZ B Subnet ID"
+      Value:  !Ref subnetDmzB
+      Export:
+        Name: !Sub ${AWS::StackName}-DmzSubnetBId
+
+  DmzSubnetCId:
+      Description : "DMZ C Subnet ID"
+      Value:  !Ref subnetDmzC
+      Export:
+        Name: !Sub ${AWS::StackName}-DmzSubnetCId
+
+  # will be used for ECS cluster auto scaling group later
+  SubnetNodesAId:
+      Description : "Microservices Nodes Subnet A ID"
+      Value:  !Ref subnetNodesA
+      Export:
+        Name: !Sub ${AWS::StackName}-SubnetNodesAId
+
+  SubnetNodesBId:
+      Description : "Microservices Nodes Subnet B ID"
+      Value:  !Ref subnetNodesB
+      Export:
+        Name: !Sub ${AWS::StackName}-SubnetNodesBId
+
+  SubnetNodesCId:
+      Description : "Microservices Nodes Subnet C ID"
+      Value:  !Ref subnetNodesC
+      Export:
+        Name: !Sub ${AWS::StackName}-SubnetNodesCId
+
+  # will be used to create DB subnet groups later which are required for RDS
+  SubnetDbAId:
+      Description : "Microservices Db A ID"
+      Value:  !Ref subnetDbA
+      Export:
+        Name: !Sub ${AWS::StackName}-SubnetDbAId
+
+  SubnetDbBId:
+      Description : "Microservices Db B ID"
+      Value:  !Ref subnetDbB
+      Export:
+        Name: !Sub ${AWS::StackName}-SubnetDbBId
+
+  SubnetDbCId:
+      Description : "Microservices Db C ID"
+      Value:  !Ref subnetDbC
+      Export:
+        Name: !Sub ${AWS::StackName}-SubnetDbCId

@@ -1,0 +1,72 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Roles for EC2 Instances"
+
+Resources:
+
+  # A role so that our ECS nodes can work with other AWS services
+  EcsNode:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: EcsNode
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        # attach the EC2 Container Service policy that will allow the instance
+        # to communicate with ECS, and this policy includes Cloudwatch Logs permissions
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+
+  EcsNodeProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      InstanceProfileName: EcsNode
+      Roles:
+        - !Ref EcsNode
+
+  # A role so that an instance can find and attach volumes to itself
+  EC2VolumeAccess:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: EC2VolumeAccess
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: "AllowEC2InstanceToManageVolumes"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "ec2:*Volume*" # Wildcards allow all actions pertaining to Volumes
+                  - "ec2:CreateSnapshot"
+                  - "ec2:DescribeSnapshots"
+                Resource: "*"
+
+              - Effect: "Deny"
+                Action: "ec2:DeleteVolume" # Prevent volume deletion
+                Resource: "*"
+
+  EC2VolumeAccessProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      InstanceProfileName: EC2VolumeAccess
+      Roles:
+        - !Ref EC2VolumeAccess

@@ -1,0 +1,103 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ECS Auto Scaling Groups"
+
+Parameters:
+  NetworkStack:
+    Type: "String"
+    Description: "Network stack to apply to."
+
+  AMI:
+    Type: AWS::EC2::Image::Id
+    Description: ID of Amazon Machine Image for ECS
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Which key to use for ECS nodes?
+
+  NumNodes:
+    Type: String
+    Description: How many nodes for this cluster?
+    Default: 0
+
+Resources:
+  # Launch Configuration defines WHAT gets launched
+  ECSLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      EbsOptimized: True
+      IamInstanceProfile: EcsNode
+      ImageId: !Ref AMI
+      InstanceMonitoring: True
+      InstanceType: m4.large
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref EcsSecurityGroup
+
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+            - "\n"
+            - # this line creates the "array within the array" that Join requires as the 2nd arg
+              - "#!/bin/bash"
+              - !Join ["",["echo \"ECS_CLUSTER=", !Ref "AWS::StackName", "\" >> /etc/ecs/ecs.config"]]
+
+  # Auto Scaling Group defines WHERE it gets launched
+  EcsNodesASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      DesiredCapacity: !Ref NumNodes
+      HealthCheckGracePeriod: 420
+      HealthCheckType: EC2
+      LaunchConfigurationName: !Ref ECSLaunchConfig
+      MaxSize: !Ref NumNodes
+      MinSize: !Ref NumNodes
+      VPCZoneIdentifier:
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-SubnetNodesAId
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-SubnetNodesBId
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-SubnetNodesCId
+      Tags:
+        - Key: Cluster
+          Value: !Ref AWS::StackName
+          PropagateAtLaunch: True
+
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Ref "AWS::StackName"
+      GroupDescription: !Ref "AWS::StackName"
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcId
+
+  EcsSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: "-1" # allow all traffic outbound
+
+  # allow ECS nodes to receive NTP traffic
+  EcsSecurityGroupIngressAllowNtp:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: "udp"
+      FromPort: 123
+      ToPort: 123
+
+  # allow ECS nodes to receive traffic from the local VPC range
+  EcsSecurityGroupIngressAllowTCP:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref EcsSecurityGroup
+      CidrIp:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcCidr
+      IpProtocol: "tcp"
+      FromPort: 1024
+      ToPort: 65535

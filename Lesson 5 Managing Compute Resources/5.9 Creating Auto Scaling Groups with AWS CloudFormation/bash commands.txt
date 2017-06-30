@@ -1,0 +1,25 @@
+#capture the latest Amazon ECS optimized AMI id
+IMAGE_ID=$(aws --profile dev ec2 describe-images --owners amazon --filters Name=name,Values='amzn-ami-*-amazon-ecs-optimized' --query 'sort_by(Images, &CreationDate)[-1].ImageId' --output text)
+
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/compute/ec2-autoscaling-ecs.yml --query 'Parameters[].[ParameterKey,Description]' --output table
+
+# set our stack name as a variable
+STACK_NAME="microservices-dev-ohio"
+
+# create the stack and wait for completion
+aws --profile dev cloudformation create-stack \
+--stack-name ${STACK_NAME} \
+--template-body file://source/cloudformation/compute/ec2-autoscaling-ecs.yml \
+--parameters \
+ParameterKey=NetworkStack,ParameterValue=microservices-network \
+ParameterKey=AMI,ParameterValue=${IMAGE_ID} \
+ParameterKey=KeyName,ParameterValue=lab \
+ParameterKey=NumNodes,ParameterValue=0 \
+&& aws --profile dev cloudformation wait stack-create-complete --stack-name ${STACK_NAME}
+
+# describe stack events
+aws --profile dev cloudformation describe-stack-events --stack-name ${STACK_NAME} --query 'StackEvents[].[{Resource:LogicalResourceId, Status:ResourceStatus, Reason:ResourceStatusReason}]' --output table
+
+# descrine stack resources
+aws --profile dev cloudformation describe-stack-resources --stack-name ${STACK_NAME} --query 'StackResources[].[LogicalResourceId,ResourceStatus]' --output table

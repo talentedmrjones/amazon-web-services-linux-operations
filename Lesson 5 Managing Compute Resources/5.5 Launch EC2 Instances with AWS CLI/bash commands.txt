@@ -1,0 +1,17 @@
+# capture AMI ID as env variable
+AMZN_AMI=$(aws --profile dev ec2 describe-images --owners amazon --filters Name=architecture,Values=x86_64 Name=virtualization-type,Values=hvm Name=root-device-type,Values=ebs Name=name,Values='amzn-ami-hvm*-gp2' --query 'sort_by(Images, &CreationDate)[-1].ImageId' --output text) && echo $AMZN_AMI
+
+# launch ec2 instance in default vpc
+aws --profile dev ec2 run-instances --image-id ${AMZN_AMI} --key-name lab --instance-type t2.nano --associate-public-ip-address
+
+# get security groups
+aws --profile dev ec2 describe-instances --query 'Reservations[0].Instances[0].SecurityGroups[0]' --output table
+
+# open ssh from my ip
+aws --profile dev ec2 authorize-security-group-ingress --group-id <security group id> --protocol tcp --port 22 --cidr "$(dig +short myip.opendns.com @resolver1.opendns.com)/32"
+
+# get public IP of instance
+aws --profile dev ec2 describe-instances --query 'Reservations[0].Instances[0].PublicIpAddress' --output text
+
+# shell into instance
+ssh -i ./lab.pem ec2-user@<public ip>

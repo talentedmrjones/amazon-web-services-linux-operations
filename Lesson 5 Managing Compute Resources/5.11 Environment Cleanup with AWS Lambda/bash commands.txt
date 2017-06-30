@@ -1,0 +1,30 @@
+# get latest amazon linux ami
+IMAGE_ID=$(aws --profile dev ec2 describe-images --owners amazon --filters Name=architecture,Values=x86_64 Name=virtualization-type,Values=hvm Name=root-device-type,Values=ebs Name=name,Values='amzn-ami-hvm*-gp2' --query 'sort_by(Images, &CreationDate)[-1].ImageId' --output text)
+
+# launch a few cheap instances tagged Environment=sandbox
+aws --profile dev ec2 run-instances --image-id ${IMAGE_ID} --instance-type t2.nano --count 3 --tag-specifications 'ResourceType=instance,Tags=[{Key=Environment,Value=sandbox}]'
+
+# launch a few cheap instances tagged Environment=dev
+aws --profile dev ec2 run-instances --image-id ${IMAGE_ID} --instance-type t2.nano --count 3 --tag-specifications 'ResourceType=instance,Tags=[{Key=Environment,Value=dev}]'
+
+# first zip our python file
+zip -j -X source/scripts/lambda/cleanup.zip source/scripts/lambda/cleanup.py
+
+# resync to s3 so code is available to lambda
+aws --profile admin s3 sync source/ s3://aws-linux-ops/ --exclude "configs/*" --delete
+
+# validate our lambda template
+aws cloudformation validate-template --template-body file://source/cloudformation/compute/lambda-cleanup.yml
+
+# create the stack
+aws --profile dev cloudformation create-stack --stack-name lambda-cleanup --template-body file://source/cloudformation/compute/lambda-cleanup.yml --capabilities CAPABILITY_NAMED_IAM
+
+# list functions
+aws --profile dev lambda list-functions
+
+# manually invoke the function
+aws --profile dev lambda invoke --function-name cleanup --invocation-type Event cleanup.txt
+
+
+# describe-images
+aws --profile dev ec2 describe-instances # CHALLENGE: make this easier to read

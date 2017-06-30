@@ -1,0 +1,16 @@
+
+# capture old key to delete later
+aws --profile admin configure get aws_access_key_id
+
+# create new credentials
+
+aws --profile admin iam create-access-key --user-name s.cooper
+
+# set new keys
+aws --profile admin configure set aws_access_key_id <new access key>
+aws --profile admin configure set aws_secret_access_key <new secret key>
+
+# delete the old ones (beware eventual consistency)
+aws --profile admin iam delete-access-key --user-name <username> --access-key-id <old key>
+
+# http://docs.aws.amazon.com/cli/latest/reference/iam/create-access-key.html

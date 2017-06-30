@@ -1,0 +1,26 @@
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/network/microservices-security-2.yml
+
+# create the change set and capture its ID
+CHANGE_SET=$(aws --profile dev cloudformation create-change-set --change-set-name allow-http-traffic --stack-name microservices-security --template-body file://source/cloudformation/network/microservices-security-2.yml --parameters ParameterKey=NetworkStack,UsePreviousValue=true --query 'Id' --output text)
+
+# view details of change set
+aws --profile dev cloudformation describe-change-set --change-set-name ${CHANGE_SET}
+
+# cleaner output
+aws --profile dev cloudformation describe-change-set --change-set-name ${CHANGE_SET} --query '[StackName,Changes[].ResourceChange]' --output text
+
+# apply the changes and wait for stack update
+aws --profile dev cloudformation execute-change-set --change-set-name ${CHANGE_SET} && aws --profile dev cloudformation wait stack-update-complete --stack-name microservices-security
+
+# capture VPC ID to env variable
+VPC_ID=$(aws --profile dev ec2 describe-vpcs --filters "Name=tag:Name,Values=microservices-network" --query 'Vpcs[0].VpcId' --output text)
+
+# describe NACLs
+aws --profile dev ec2 describe-network-acls --filters "Name=vpc-id,Values=${VPC_ID}" "Name=tag:aws:cloudformation:stack-name,Values=microservices-security" --query 'NetworkAcls[].[NetworkAclId,Tags[?Key==`Name`]|[0].Value]' --output table
+
+# describe the entries in table format
+aws --profile dev ec2 describe-network-acls --filters "Name=vpc-id,Values=${VPC_ID}" "Name=tag:aws:cloudformation:stack-name,Values=microservices-security" --query 'NetworkAcls[].Entries[]' --output table
+
+# describe entries with customized names & values
+aws --profile dev ec2 describe-network-acls --filters "Name=vpc-id,Values=${VPC_ID}" "Name=tag:aws:cloudformation:stack-name,Values=microservices-security" --query 'NetworkAcls[].Entries[].{Num:RuleNumber, Rule:RuleAction, Range:CidrBlock, Protocol:Protocol, Egress:Egress, Ports:join(`-`,[to_string(PortRange.From), to_string(PortRange.To)])}' --output table

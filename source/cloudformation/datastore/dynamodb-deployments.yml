@@ -1,0 +1,28 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "DynamoDB Table for Service Deployments"
+
+Resources:
+  DeploymentsDynamoDBTable:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-table.html#cfn-dynamodb-table-attributedef
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: "DeploymentsByService"
+      AttributeDefinitions: # we only need to specify those keys that will be used for indexes (which includes primary key)
+        - AttributeName: "Service" # name of the service
+          AttributeType: "S"
+
+        - AttributeName: "Time"   # unix timestamp
+          AttributeType: "N"
+
+
+      KeySchema: #  Service+Time is a composite primary key
+        - AttributeName: "Service" # is partition key
+          KeyType: "HASH"
+
+        - AttributeName: "Time" # is sort key
+          KeyType: "RANGE"
+
+      ProvisionedThroughput:
+        ReadCapacityUnits: "2"
+        WriteCapacityUnits: "2"

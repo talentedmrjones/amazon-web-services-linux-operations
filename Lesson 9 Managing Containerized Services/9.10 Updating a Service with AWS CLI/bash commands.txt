@@ -1,0 +1,20 @@
+
+# edit package.json version
+
+# execute shell script
+./source/scripts/updateService.sh
+
+# view service deployments
+aws --profile dev ecs describe-services --cluster microservices-dev-ohio --services billing --query 'services[0].deployments' --output table
+
+# wait for service to stabilize
+aws --profile dev ecs wait services-stable --cluster microservices-dev-ohio --services billing && echo $?
+
+# get DNS endpoint from ELB
+ENDPOINT=$(aws --profile dev elbv2 describe-load-balancers --names microservices-dev-ohio  --query 'LoadBalancers[0].DNSName' --output text) && echo ${ENDPOINT}
+
+# curl it!
+curl http://$ENDPOINT/billing
+
+# see headers
+curl -I http://$ENDPOINT/billing

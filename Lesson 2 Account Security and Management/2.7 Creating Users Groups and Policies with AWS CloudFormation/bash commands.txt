@@ -1,0 +1,22 @@
+# validate the template to ensure no syntax errors
+aws cloudformation validate-template --template-body file://source/cloudformation/access/users-developers.yml
+
+# first create the stack specifying the template file and the necessary IAM capabilities
+aws --profile admin cloudformation create-stack --stack-name users-group-developers --template-body file://source/cloudformation/access/users-developers.yml  --capabilities "CAPABILITY_IAM" "CAPABILITY_NAMED_IAM"
+
+# now wait for completion
+aws --profile admin cloudformation wait stack-create-complete --stack-name users-group-developers
+aws --profile admin cloudformation describe-stacks --stack-name users-group-developers
+aws --profile admin cloudformation describe-stacks --stack-name users-group-developers --query 'Stacks[].[StackName,StackStatus]' --output text
+
+# describe cloudformation stack resources to see details
+aws --profile admin cloudformation describe-stack-resources --stack-name users-group-developers
+
+# list IAM users to
+aws --profile admin iam list-users
+
+# list customer managed policies (not AWS policies)
+aws --profile admin iam list-policies --scope Local
+
+# see details of the PolicyDocument
+aws --profile admin iam get-policy-version --policy-arn <policy arn> --version-id v1

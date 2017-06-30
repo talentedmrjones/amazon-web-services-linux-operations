@@ -1,0 +1,129 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Application LoadBalancer for microservices"
+
+Parameters:
+  NetworkStack:
+    Type: "String"
+    Description: "Network stack to apply to."
+
+  ElbName:
+    Type: String
+    Description: "Name for this ELB"
+
+Resources:
+
+  # create an APPLICATION load balancer for use by containers in our  microservices ECS cluster
+  AlbForMicroservices:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticloadbalancingv2-loadbalancer.html
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref ElbName
+      Scheme: internet-facing
+      Subnets:
+          # add the 3 DMZ (public) subnets for access to the internet
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-DmzSubnetAId
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-DmzSubnetBId
+        - Fn::ImportValue:
+            !Sub ${NetworkStack}-DmzSubnetCId
+
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '10'
+      SecurityGroups:
+        - Ref: AlbForMicroservicesSecurityGroup
+      Tags:
+        - Key: Purpose
+          Value: microservices
+
+  # create a Security Group specifically for our ECS cluster
+  AlbForMicroservicesSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Ref "AWS::StackName"
+      GroupDescription: !Ref "AWS::StackName"
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcId
+
+  # Allow outbound traffic
+  AlbForMicroservicesSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref AlbForMicroservicesSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: "-1" # allow all traffic outbound
+
+  # allow Load balancer to receive HTTP
+  AlbForMicroservicesSecurityGroupIngressAllowHTTP:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref AlbForMicroservicesSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: "tcp"
+      FromPort: 80
+      ToPort: 80
+
+  # allow Load balancer to receive HTTPS
+  AlbForMicroservicesSecurityGroupIngressAllowHTTPS:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref AlbForMicroservicesSecurityGroup
+      CidrIp: 0.0.0.0/0
+      IpProtocol: "tcp"
+      FromPort: 443
+      ToPort: 443
+
+  # Load Balancer needs a listener
+  ListenerForAlbForMicroservices:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroupForMicroservicesBilling
+      LoadBalancerArn:
+        Ref: AlbForMicroservices
+      Port: '80'
+      Protocol: HTTP
+
+  # target group for the billing service
+  TargetGroupForMicroservicesBilling:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 2
+      HealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+      Name: microservices-billing
+      Port: 80
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '20'
+      UnhealthyThresholdCount: 3
+      VpcId:
+        Fn::ImportValue:
+          !Sub ${NetworkStack}-VpcId
+      Tags:
+        - Key: Purpose
+          Value: microservices/billing
+
+  # create a listener rule that ROUTES /billing to billing service
+  # will need a rule for each service
+  ListenerRuleForMicroservicesBilling:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupForMicroservicesBilling
+      Conditions:
+        - Field: path-pattern
+          Values:
+          - "/billing/*"
+      ListenerArn: !Ref ListenerForAlbForMicroservices
+      Priority: 1

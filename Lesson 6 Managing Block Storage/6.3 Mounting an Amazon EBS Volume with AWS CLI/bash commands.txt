@@ -1,0 +1,57 @@
+# capture instance id
+INSTANCE_ID=$(aws --profile dev ec2 describe-instances --filters Name=instance-state-name,Values=running "Name=private-ip-address,Values=172.31*" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+
+# associate role
+# http://docs.aws.amazon.com/cli/latest/reference/ec2/associate-iam-instance-profile.html
+aws -profile dev ec2 associate-iam-instance-profile --iam-instance-profile Name=EC2VolumeAccess --instance-id ${INSTANCE_ID}
+
+# capture public IP
+INSTANCE_PUBLIC_IP=$(aws --profile dev ec2 describe-instances --instance-ids ${INSTANCE_ID} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+
+
+# first shell into an instance
+ssh -i ./lab.pem ec2-user@${INSTANCE_PUBLIC_IP}
+
+# RUN THE FOLLOWING FROM THE EC2 INSTANCE
+
+# take a look at role information from instance metadata
+curl http://169.254.169.254/latest/meta-data/iam/info
+
+# capture the instance ID
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+
+# get the current availability-zone
+AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+
+# remove the last letter to get the current region
+REGION=${AZ::-1}
+
+# find the right volume *in the same AZ* and capture its ID
+# since this is running on an EC2 instance we don't need --profile, but we do need --region
+VOLUME_ID=$(aws --region ${REGION} ec2 describe-volumes --filters Name=availability-zone,Values=${AZ} Name=status,Values=available  Name=tag:Service,Values=mongodb --query 'Volumes[0].VolumeId' --output text)
+
+# list block devices to see xvd vs sd
+sudo lsblk
+
+# amazon linux will use xvda, xvdb, and so on
+# attach the volume
+aws --region ${REGION} ec2 attach-volume --device /dev/xvdb --instance-id ${INSTANCE_ID} --volume-id ${VOLUME_ID}
+
+# wait for volume to change from attaching to in-use
+aws --region ${REGION} ec2 wait volume-in-use --volume-ids ${VOLUME_ID}
+
+# list block devices again
+sudo lsblk
+
+# IF MOUNTING AN *EMPTY VOLUME* one NOT created from  snapshot!
+# format device
+sudo mkfs -t ext4 /dev/xvdb
+
+# make a folder to be a mount point
+sudo mkdir /var/mongo
+
+# mount the volume
+sudo mount /dev/xvdb /var/mongo
+
+# verify mount
+df

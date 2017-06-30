@@ -1,0 +1,29 @@
+# first shell into the instance
+ssh -i ./lab.pem ec2-user@${INSTANCE_PUBLIC_IP}
+
+# show our attached volumes and mounts
+df
+
+# capture the instance ID
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+
+# get the current availability-zone
+AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+
+# remove the last letter to get the current region
+REGION=${AZ::-1}
+
+# take a look at the volumes currently attached
+aws --region ${REGION} ec2 describe-volumes --filters Name=attachment.instance-id,Values=${INSTANCE_ID}
+
+# find the volume attached to this instance
+VOLUME_ID=$(aws --region ${REGION} ec2 describe-volumes --filters Name=attachment.instance-id,Values=${INSTANCE_ID} Name=tag:Service,Values=mongodb --query 'Volumes[0].VolumeId' --output text)
+
+# create snapshot
+SNAPSHOT_ID=$(aws --region ${REGION} ec2 create-snapshot --volume-id ${VOLUME_ID} --description "mongodb automated snapshot" --query 'SnapshotId' --output text)
+
+# wait for snapshot to complete
+aws --region ${REGION} ec2 wait snapshot-completed --snapshot-ids ${SNAPSHOT_ID}
+
+# describe snapshots
+aws --region ${REGION} ec2 describe-snapshots --filters Name=volume-id,Values=${VOLUME_ID}

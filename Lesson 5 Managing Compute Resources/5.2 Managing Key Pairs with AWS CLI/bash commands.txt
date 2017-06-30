@@ -1,0 +1,41 @@
+# create a key pair
+aws --profile dev ec2 create-key-pair --key-name lab
+
+# delete a key pair
+aws --profile dev ec2 delete-key-pair --key-name lab
+
+# save output of private key to a file (root of Amazon Web Services Linux Operations project)
+aws --profile dev ec2 create-key-pair --key-name lab --query 'KeyMaterial' --output text > ./lab.pem
+
+# list key pairs
+aws --profile dev ec2 describe-key-pairs
+
+# delete a key pair
+aws --profile dev ec2 delete-key-pair --key-name lab
+rm ./lab.pem
+
+
+# IMPORT KEY PAIRS
+
+# generate a key pair
+openssl genrsa -out ./lab.pem 2048
+
+# restrict access to key
+chmod 400 ./lab.pem
+
+# just for fun, peek at the public key
+openssl rsa -in ./lab.pem -pubout 2>/dev/null
+
+# but we need the key material WITHOUT -----BEGIN/END PUBLIC KEY-----
+# use awk
+openssl rsa -in ./lab.pem -pubout 2>/dev/null | awk '/-END PUBLIC KEY-/ { p = 0 }; p{printf "%s",$0}; /-BEGIN PUBLIC KEY-/ { p = 1 }'
+
+# import key pair into DEVELOPMENT account
+aws --profile dev ec2 import-key-pair --key-name lab --public-key-material "$(openssl rsa -in ./lab.pem -pubout 2>/dev/null | awk '/-END PUBLIC KEY-/ { p = 0 }; p{printf "%s",$0}; /-BEGIN PUBLIC KEY-/ { p = 1 }')"
+
+# list key pairs
+aws --profile dev ec2 describe-key-pairs
+
+
+# import key pair into ADMIN account
+aws --profile admin ec2 import-key-pair --key-name lab --public-key-material "$(openssl rsa -in ./lab.pem -pubout 2>/dev/null | awk '/-END PUBLIC KEY-/ { p = 0 }; p{printf "%s",$0}; /-BEGIN PUBLIC KEY-/ { p = 1 }')"

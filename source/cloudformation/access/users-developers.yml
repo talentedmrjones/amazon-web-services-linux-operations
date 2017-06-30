@@ -1,0 +1,60 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Developers Group and Users"
+
+Resources:
+  DevelopersGroup: # create a GROUP for our developers
+    Type: "AWS::IAM::Group"
+    Properties:
+      GroupName: "Developers"
+
+  EC2LimitedAccessPolicy: # grant limited access to EC2
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: "EC2LimitedAccess"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+            # allow developers to launch, start, and stop instances
+          - Effect: "Allow"
+            Action:
+              - "ec2:RunInstances"
+              - "ec2:StartInstances"
+              - "ec2:StopInstances"
+            Resource: "*"
+            Condition:
+              StringEquals:
+                ec2:InstanceType:
+                  - "t2.small"
+                  - "t2.medium"
+
+            # allow developers to manage THEIR OWN access keys and password
+          - Effect: "Allow"
+            Action:
+              - "iam:*AccessKey*"
+              - "iam:ChangePassword"
+            Resource:
+              Fn::Join: [":", ["arn:aws:iam:", !Ref "AWS::AccountId", "user/${aws:username}"]]
+
+      Groups:
+        - Developers
+
+  userAmyFowler:
+    Type: "AWS::IAM::User"
+    Properties:
+      UserName: "a.fowler"
+      LoginProfile:
+        Password: "cH4n63M3N0w!"
+        PasswordResetRequired: True
+      Groups:
+        - Developers
+
+  userLeonardHofstadter:
+    Type: "AWS::IAM::User"
+    Properties:
+      UserName: "l.hofstadter"
+      LoginProfile:
+        Password: "cH4n63M3N0w!"
+        PasswordResetRequired: True
+      Groups:
+        - Developers

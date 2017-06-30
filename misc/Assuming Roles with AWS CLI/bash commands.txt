@@ -1,0 +1,15 @@
+
+# make a call to s3 to show we don't yet have permission
+aws s3 ls s3://
+
+
+# call Security Token Service to get TEMPORARY credentials
+TEMP_CREDS=$(aws sts assume-role --role-arn <role arn> --role-session-name devDataAccessSession-$(date +%Y-%m-%d-%H%M%S) --query 'Credentials')
+
+# save credentials to ENV variables
+export AWS_ACCESS_KEY_ID=$(echo $ROLE_SESSION | jq -r '.AccessKeyId')
+export AWS_SECRET_ACCESS_KEY=$(echo $ROLE_SESSION | jq -r '.SecretAccessKey')
+export AWS_SESSION_TOKEN=$(echo $ROLE_SESSION | jq -r '.SessionToken')
+
+# make a call to s3
+aws s3 ls s3://

@@ -1,0 +1,39 @@
+# get arn of service role
+ROLE_ARN=$(aws --profile dev iam get-role --role-name EcsServiceRole --query 'Role.Arn' --output text) && echo ${ROLE_ARN}
+
+# get arn of latest task definition
+TASK_ARN=$(aws --profile dev ecs list-task-definitions --family-prefix microservices-billing --sort DESC --query 'taskDefinitionArns[0]' --output text) && echo ${TASK_ARN}
+
+# get target group arn
+TARGET_GROUP_ARN=$(aws --profile dev elbv2 describe-target-groups --names microservices-billing --query 'TargetGroups[0].TargetGroupArn' --output text) && echo ${TARGET_GROUP_ARN}
+
+# create a log group for this service
+aws --profile dev logs create-log-group --log-group-name microservices-billing
+
+# create the service
+aws --profile dev ecs create-service \
+--cluster microservices-dev-ohio \
+--service-name billing \
+--desired-count 3 \
+--task-definition ${TASK_ARN} \
+--role ${ROLE_ARN} \
+--load-balancers targetGroupArn=${TARGET_GROUP_ARN},containerName=billing-nodejs,containerPort=3000 \
+--deployment-configuration maximumPercent=200,minimumHealthyPercent=100
+
+# wait for the service to "stabilize"
+aws --profile dev ecs wait services-stable --cluster microservices-dev-ohio --services billing
+
+# capture the arns
+CLUSTERS=$(aws --profile dev ecs list-clusters --query 'clusterArns[]' --output text)
+
+# describe clusters again
+aws --profile dev ecs describe-clusters --clusters ${CLUSTERS} --query 'clusters[?status==`ACTIVE`].[{Cluster:clusterName, "EC2 Instances": registeredContainerInstancesCount, Services: activeServicesCount, "Tasks Pending": pendingTasksCount, "Tasks Running": runningTasksCount}]' --output table
+
+# get DNS endpoint from ELB
+ENDPOINT=$(aws --profile dev elbv2 describe-load-balancers --names microservices-dev-ohio  --query 'LoadBalancers[0].DNSName' --output text) && echo ${ENDPOINT}
+
+# curl it!
+curl http://$ENDPOINT/billing
+
+# see headers
+curl -I http://$ENDPOINT/billing

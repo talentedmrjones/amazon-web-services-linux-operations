@@ -1,0 +1,11 @@
+# validate template
+aws cloudformation validate-template --template-body file://source/cloudformation/datastore/dynamodb-deployments.yml
+
+# create stack
+aws --profile dev cloudformation create-stack --stack-name dynamodb-deployments --template-body file://source/cloudformation/datastore/dynamodb-deployments.yml
+
+# wait for stack to complete
+aws --profile dev cloudformation wait stack-create-complete --stack-name dynamodb-deployments
+
+# describe table
+aws --profile dev dynamodb describe-table --table-name DeploymentsByService
