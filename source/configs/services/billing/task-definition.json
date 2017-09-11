@@ -3,7 +3,7 @@
   "containerDefinitions": [
     {
       "name": "billing-nodejs",
-      "image": "649103636557.dkr.ecr.us-east-2.amazonaws.com/microservices/billing:1.1.0",
+      "image": "",
       "cpu": 100,
       "memory": 128,
       "essential": true,
