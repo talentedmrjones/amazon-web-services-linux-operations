@@ -12,7 +12,7 @@ VERSION=$(cat source/services/billing/package.json | jq -r '.version') && echo $
 docker build -t ${REPO_URI}:${VERSION} source/services/billing/
 
 # ensure docker is logged in to the private registry
-aws --profile admin ecr get-login --registry-ids 649103636557 --no-include-email | bash
+aws --profile admin ecr get-login --registry-ids <admin account number> --no-include-email | bash
 
 # push the image to the repo
 docker push ${REPO_URI}:${VERSION}
