@@ -1,8 +1,8 @@
 # Amazon Web Services Linux Operations
 
 "Amazon Web Services Linux Operations" is a 7-hour training video, authored by Richard Jones and published by Pearson/Addison-Wesley. You can find this video at the following links:
-1. informit.com
-2. safaribooksonline.com
+1. [InformIT.com](http://www.informit.com/store/amazon-web-services-aws-linux-operations-livelessons-9780134818320)
+2. [Safari Books Online](https://www.safaribooksonline.com/library/view/amazon-web-services/9780134818313/)
 
 
 ## License
